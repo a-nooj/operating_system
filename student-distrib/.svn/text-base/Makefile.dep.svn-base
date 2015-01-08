@@ -1,0 +1,57 @@
+boot.o: boot.S multiboot.h x86_desc.h types.h
+common_interrupt.o: common_interrupt.S
+x86_desc.o: x86_desc.S x86_desc.h types.h
+colors.o: colors.c colors.h types.h lib.h terminal.h x86_desc.h debug.h \
+  i8259.h keyboard.h handlers.h rtc.h file_descriptor.h sched.h process.h \
+  common_interrupt.h paging.h signal.h soundblaster.h mouse.h
+file_descriptor.o: file_descriptor.c file_descriptor.h types.h \
+  filesystem.h terminal.h x86_desc.h lib.h debug.h i8259.h keyboard.h \
+  handlers.h rtc.h sched.h process.h common_interrupt.h paging.h signal.h \
+  soundblaster.h
+files.o: files.c files.h types.h
+filesystem.o: filesystem.c filesystem.h types.h file_descriptor.h lib.h \
+  terminal.h x86_desc.h debug.h i8259.h keyboard.h handlers.h rtc.h \
+  sched.h process.h common_interrupt.h paging.h signal.h soundblaster.h
+handlers.o: handlers.c handlers.h x86_desc.h types.h lib.h terminal.h \
+  debug.h i8259.h keyboard.h rtc.h file_descriptor.h sched.h process.h \
+  common_interrupt.h paging.h signal.h soundblaster.h
+i8259.o: i8259.c i8259.h types.h lib.h terminal.h x86_desc.h debug.h \
+  keyboard.h handlers.h rtc.h file_descriptor.h sched.h process.h \
+  common_interrupt.h paging.h signal.h soundblaster.h
+kernel.o: kernel.c multiboot.h types.h x86_desc.h lib.h terminal.h \
+  debug.h i8259.h keyboard.h handlers.h rtc.h file_descriptor.h sched.h \
+  process.h common_interrupt.h paging.h signal.h soundblaster.h \
+  test_int_handlers.h filesystem.h tests.h colors.h mouse.h
+keyboard.o: keyboard.c keyboard.h x86_desc.h types.h lib.h terminal.h \
+  debug.h i8259.h handlers.h rtc.h file_descriptor.h sched.h process.h \
+  common_interrupt.h paging.h signal.h soundblaster.h
+lib.o: lib.c lib.h types.h terminal.h x86_desc.h debug.h i8259.h \
+  keyboard.h handlers.h rtc.h file_descriptor.h sched.h process.h \
+  common_interrupt.h paging.h signal.h soundblaster.h
+mouse.o: mouse.c mouse.h lib.h types.h terminal.h x86_desc.h debug.h \
+  i8259.h keyboard.h handlers.h rtc.h file_descriptor.h sched.h process.h \
+  common_interrupt.h paging.h signal.h soundblaster.h
+paging.o: paging.c paging.h types.h
+process.o: process.c process.h types.h common_interrupt.h handlers.h \
+  x86_desc.h lib.h terminal.h debug.h i8259.h keyboard.h rtc.h \
+  file_descriptor.h sched.h signal.h paging.h soundblaster.h
+rtc.o: rtc.c rtc.h types.h file_descriptor.h x86_desc.h lib.h terminal.h \
+  debug.h i8259.h keyboard.h handlers.h sched.h process.h \
+  common_interrupt.h paging.h signal.h soundblaster.h
+sched.o: sched.c sched.h lib.h types.h terminal.h x86_desc.h debug.h \
+  i8259.h keyboard.h handlers.h rtc.h file_descriptor.h process.h \
+  common_interrupt.h paging.h signal.h soundblaster.h
+signal.o: signal.c signal.h types.h lib.h terminal.h x86_desc.h debug.h \
+  i8259.h keyboard.h handlers.h rtc.h file_descriptor.h sched.h process.h \
+  common_interrupt.h paging.h soundblaster.h
+soundblaster.o: soundblaster.c soundblaster.h x86_desc.h types.h lib.h \
+  terminal.h debug.h i8259.h keyboard.h handlers.h rtc.h \
+  file_descriptor.h sched.h process.h common_interrupt.h paging.h \
+  signal.h
+terminal.o: terminal.c terminal.h x86_desc.h types.h lib.h debug.h \
+  i8259.h keyboard.h handlers.h rtc.h file_descriptor.h sched.h process.h \
+  common_interrupt.h paging.h signal.h soundblaster.h mouse.h
+test_int_handlers.o: test_int_handlers.c test_int_handlers.h x86_desc.h \
+  types.h lib.h terminal.h debug.h i8259.h keyboard.h handlers.h rtc.h \
+  file_descriptor.h sched.h process.h common_interrupt.h paging.h \
+  signal.h soundblaster.h

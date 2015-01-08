@@ -1,0 +1,9 @@
+K 10
+svn:ignore
+V 30
+*.swp
+bootimg
+tests.C
+mp3.img
+
+END

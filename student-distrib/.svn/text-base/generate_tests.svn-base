@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# change 0 to 1 to run normally ignored tests
+RUN_IGNORED_TESTS=0
+
+if [ $RUN_IGNORED_TESTS -eq 0 ]; then
+	TEST_REGEXP='\(S_TEST\)'
+else
+	TEST_REGEXP='\(S_TEST\|S_IGNORE\)'
+fi
+
+echo '#include "test.C"' > tests.C
+echo >> tests.C
+echo 'void run_tests(void) {' >> tests.C
+echo -e '\tS_PRINT("Running tests\\n");' >> tests.C
+grep "^$TEST_REGEXP" test.C | sed "s/^$TEST_REGEXP(\([^)]*\)).*$/\tS_RUN_TEST(\2);/" >> tests.C
+echo -e '\tS_PRINT("All tests successful\\n");' >> tests.C
+echo '}' >> tests.C

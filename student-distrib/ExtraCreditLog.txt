@@ -1,0 +1,15 @@
+Extra Credit Log:
+
+--Everything we've done so far, big and small
+1) Malloc & Syscall interface
+2) Signals (Ctrl-C functionality)
+3) PC Speaker Beep + ascii 007 art on startup 
+4) AdLib Sound Card & Syscall interface
+5) Proper Stupid-User exception handling (eg, user program tries to divide by zero, is successfully squashed)
+6) Virtualized RTC
+7) Color-changing Syscall
+8) Printk 
+9)
+10)
+11)
+12)
