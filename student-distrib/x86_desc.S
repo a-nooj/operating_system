@@ -7,14 +7,19 @@
 .text
 
 .globl  ldt_size, tss_size
-.globl  gdt_desc, ldt_desc, tss_desc, gdt_desc_ptr
+.globl  gdt_desc, ldt_desc, tss_desc
 .globl  tss, tss_desc_ptr, ldt, ldt_desc_ptr
 .globl  gdt_ptr
 .globl  idt_desc_ptr, idt
-.globl	page_directory, page_table_0
+.globl	lgdt_arg
 
 .align 4
+	.word 0
+lgdt_arg:
+	.word gdt_bottom - gdt - 1
+	.long gdt
 
+.align 4
 
 tss_size:
 	.long tss_bottom - tss - 1
@@ -36,15 +41,6 @@ _tss:
 tss_bottom:
 
 	.align  16
-
-#added by C.Gerth 3-5. mirrors descriptor used for the IDT (should have same format)
-.align 4
-	.word 0 # Padding
-gdt_desc_ptr:				#Pointer to argument passed to the gdtr register in boot.S
-	.word gdt_bottom - gdt - 1
-	.long gdt
-	
-	
 gdt:
 _gdt:
 
@@ -104,15 +100,29 @@ ldt_bottom:
 .align 4
 	.word 0 # Padding
 idt_desc_ptr:
-	.word idt_bottom - idt - 1
-	.long idt
+	.word idt_bottom - idt - 1		# Size of IDT
+	.long idt						# Points to base of IDT
 	
 
 	.align  16
 idt:
 _idt:
-	.rept NUM_VEC
-	.quad 0
+	.rept NUM_VEC			# Number of entires in IDT
+	.quad 0					# Linear address of IDT
 	.endr
-
+	
+	# The layout is from “Understanding the Linux Kernel”:
+	#  31                                16 15  14 13 12              5 4   0
+	# |----------------------------------------------------------------------|
+	# |                                    |   |  D  |                 | res |
+	# | Offset 31:16                       | P |  P  | 0 1 1 1 0 0 0 0 | erv |
+	# |                                    |   |  L  |                 | ed  |
+	# |----------------------------------------------------------------------|
+	#
+	# |----------------------------------------------------------------------|
+	# |                                    |                                 |
+	# | Segment Selector                   | Offset 15:0                     |
+	# |                                    |                                 |
+	# |----------------------------------------------------------------------|
+	
 idt_bottom:

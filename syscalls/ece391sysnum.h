@@ -11,6 +11,5 @@
 #define SYS_VIDMAP  8
 #define SYS_SET_HANDLER  9
 #define SYS_SIGRETURN  10
-#define SYS_CHANGE_COLORS  11
 
 #endif /* ECE391SYSNUM_H */

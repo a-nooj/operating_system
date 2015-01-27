@@ -12,21 +12,15 @@
 #define KERNEL_CS 0x0010
 #define KERNEL_DS 0x0018
 #define USER_CS 0x0023
-#define USER_DS 0x002B
+#define USER_DS 0x002B //changed from 2b
 #define KERNEL_TSS 0x0030
 #define KERNEL_LDT 0x0038
-
-/*Descriptor Priveledge Values*/
-#define KERNEL_DPL 0
-#define USER_DPL 3
 
 /* Size of the task state segment (TSS) */
 #define TSS_SIZE 104
 
 /* Number of vectors in the interrupt descriptor table (IDT) */
 #define NUM_VEC 256
-
-
 
 #ifndef ASM
 
@@ -125,14 +119,11 @@ extern uint32_t ldt_size;
 extern seg_desc_t ldt_desc_ptr;
 extern seg_desc_t gdt_ptr;
 extern uint32_t ldt;
+extern x86_desc_t lgdt_arg;
 
 extern uint32_t tss_size;
 extern seg_desc_t tss_desc_ptr;
 extern tss_t tss;
-
-/* The descriptor used to load the GDTR - added by C.Gerth 3-5 */
-extern x86_desc_t gdt_desc_ptr;
-
 
 /* Sets runtime-settable parameters in the GDT entry for the LDT */
 #define SET_LDT_PARAMS(str, addr, lim) \
@@ -172,33 +163,17 @@ typedef union idt_desc_t {
 	} __attribute__((packed));
 } idt_desc_t;
 
-/* The IDT itself (declared in x86_desc.S) */
+/* The IDT itself (declared in x86_desc.S */
 extern idt_desc_t idt[NUM_VEC];
 /* The descriptor used to load the IDTR */
 extern x86_desc_t idt_desc_ptr;
 
-
 /* Sets runtime parameters for an IDT entry */
-/* Altered by C.Gerth on 3-6*/
-/* There are lots of arbitrary things that have to be set up for the IDT to work properly*/
-/* See the IA32 ref manual, vol3, figure 5-2 for more info on how the reserved bits have to be set up*/
-/* gate size should be for 32 bit system (so set the size bit to 1) */
-/* DPL should be zero since entries will be run with kernel privledges */
-/* Segment_selector should be Kernel Code segment since the interrupt handlers will be in kernel space*/
-/* Since this segment has already been created in the GDT, we can set the Present bit to 1*/
-#define SET_IDT_ENTRY(segment, DPL, str, handler) \
+#define SET_IDT_ENTRY(str, handler) \
 do { \
-		str.offset_31_16 = ((uint32_t)(handler) & 0xFFFF0000) >> 16; \
-		str.seg_selector = segment; 	\
-		str.reserved3 = 0;				\
-		str.reserved2 = 1;				\
-		str.reserved1 = 1;				\
-		str.size = 1;   				\
-		str.reserved0 = 0;				\
-		str.dpl = DPL;    				\
-		str.present = 1; 				\
+	str.offset_31_16 = ((uint32_t)(handler) & 0xFFFF0000) >> 16; \
 		str.offset_15_00 = ((uint32_t)(handler) & 0xFFFF); \
-	} while(0)
+} while(0)
 
 /* Load task register.  This macro takes a 16-bit index into the GDT,
  * which points to the TSS entry.  x86 then reads the GDT's TSS

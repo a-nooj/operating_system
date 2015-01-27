@@ -6,22 +6,27 @@
 #define _LIB_H
 
 #include "types.h"
-#include "terminal.h"
+
+int line_count;
 
 int32_t printf(int8_t *format, ...);
 void putc(uint8_t c);
 int32_t puts(int8_t *s);
-
-int32_t printk(int8_t *format, ...);
-void putc_term(uint8_t c);
-int32_t puts_term(int8_t *s);
-
 int8_t *itoa(uint32_t value, int8_t* buf, int32_t radix);
 int8_t *strrev(int8_t* s);
 uint32_t strlen(const int8_t* s);
 void clear(void);
-void reset_printf_pos(void);
-void test_interrupts(void);
+
+void update_cursor(int x, int y);
+int get_screen_x();
+int get_screen_y();
+void set_screen_xy(int x, int y);
+void scroll_up();
+void scroll_down();
+void update_screen_loc(int x, int y);
+void backspace(int x,int y);
+void previous_line(int x,int y);
+void next_line(int x,int y);
 
 void* memset(void* s, int32_t c, uint32_t n);
 void* memset_word(void* s, int32_t c, uint32_t n);
@@ -31,9 +36,10 @@ void* memmove(void* dest, const void* src, uint32_t n);
 int32_t strncmp(const int8_t* s1, const int8_t* s2, uint32_t n);
 int8_t* strcpy(int8_t* dest, const int8_t*src);
 int8_t* strncpy(int8_t* dest, const int8_t*src, uint32_t n);
+int8_t* cmdncpy(int8_t* dest, const int8_t* src, uint32_t n);
+void test_interrupts(void);
 
 /* Userspace address-check functions */
-//these functions don't seem to exist....
 int32_t bad_userspace_addr(const void* addr, int32_t len);
 int32_t safe_strncpy(int8_t* dest, const int8_t* src, int32_t n);
 

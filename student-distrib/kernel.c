@@ -7,40 +7,17 @@
 #include "lib.h"
 #include "i8259.h"
 #include "debug.h"
-#include "handlers.h"
-#include "keyboard.h"
+
+#include "kb.h"
 #include "rtc.h"
-#include "common_interrupt.h"
-#include "test_int_handlers.h"
-#include "terminal.h"
-#include "paging.h"
-#include "filesystem.h"
-#include "file_descriptor.h"
-#include "tests.h"
-#include "process.h"
-#include "soundblaster.h"
-#include "colors.h"
-#include "signal.h"
-#include "mouse.h"
-
-#define MOUSE_IRQ 12
-#define KEYBOARD_IRQ 1
-#define RTC_IRQ 8
-#define USER_IRQ_OFFSET 32
-#define SYS_CALL_IDT_ENTRY 0x80
-#define NUM_IRQS 15
-#define VIDEO 0xB8000
-#define STARTUP_SCREEN_COLORS 0xF0
-
+#include "file_system.h"
+#include "idt.h"
+#include "page_init.h"
+#include "syscall.h"
 
 /* Macros. */
 /* Check if the bit BIT in FLAGS is set. */
 #define CHECK_FLAG(flags,bit)   ((flags) & (1 << (bit)))
-
-#define SIZE_OF_IDT_ENTRY 8 //8 bytes per idt entry
-
-//global vars
-extern volatile int soundcard_is_open;
 
 /* Check if MAGIC is valid and print the Multiboot information structure
    pointed by ADDR. */
@@ -48,8 +25,6 @@ void
 entry (unsigned long magic, unsigned long addr)
 {
 	multiboot_info_t *mbi;
-	volatile unsigned long i = 0;
-	//int8_t testbuffer[128];
 
 	/* Clear the screen. */
 	clear();
@@ -84,6 +59,10 @@ entry (unsigned long magic, unsigned long addr)
 		int mod_count = 0;
 		int i;
 		module_t* mod = (module_t*)mbi->mods_addr;
+		
+		/* Assign pointer of file system module to global variable */
+		fs_boot = (boot_block_t*) mod->mod_start;
+		
 		while(mod_count < mbi->mods_count) {
 			printf("Module %d loaded at address: 0x%#x\n", mod_count, (unsigned int)mod->mod_start);
 			printf("Module %d ends at address: 0x%#x\n", mod_count, (unsigned int)mod->mod_end);
@@ -170,140 +149,184 @@ entry (unsigned long magic, unsigned long addr)
 		tss_desc_ptr = the_tss_desc;
 
 		tss.ldt_segment_selector = KERNEL_LDT;
-		tss.ss0 = KERNEL_DS; //segment where the kernel stack is located
-		tss.esp0 = 0x800000; //kernel stack base
+		tss.ss0 = KERNEL_DS;
+		tss.esp0 = 0x800000;
 		ltr(KERNEL_TSS);
 	}
-	/*initalize IDTR with proper location*/
-	lidt(idt_desc_ptr);						/*set IDTR with argument as defined in x86_desc.S*/
-	
-	/*set up IDT entries for handlers*/
-	for(i = 0; i<32; i++)
-		SET_IDT_ENTRY(KERNEL_CS, KERNEL_DPL, idt[i], unkexcepthandler); //set all idt entries for system exceptions as unknown first
-	/*set individual, expected handler entries*/
-	SET_IDT_ENTRY(KERNEL_CS, KERNEL_DPL, idt[0], handler0);
-	SET_IDT_ENTRY(KERNEL_CS, KERNEL_DPL, idt[3], handler3);
-	SET_IDT_ENTRY(KERNEL_CS, KERNEL_DPL, idt[4], handler4);
-	SET_IDT_ENTRY(KERNEL_CS, KERNEL_DPL, idt[5], handler5);
-	SET_IDT_ENTRY(KERNEL_CS, KERNEL_DPL, idt[6], handler6);
-	SET_IDT_ENTRY(KERNEL_CS, KERNEL_DPL, idt[7], handler7);
-	SET_IDT_ENTRY(KERNEL_CS, KERNEL_DPL, idt[8], handler8);
-	SET_IDT_ENTRY(KERNEL_CS, KERNEL_DPL, idt[9], handler9);
-	SET_IDT_ENTRY(KERNEL_CS, KERNEL_DPL, idt[10], handler10);
-	SET_IDT_ENTRY(KERNEL_CS, KERNEL_DPL, idt[11], handler11);
-	SET_IDT_ENTRY(KERNEL_CS, KERNEL_DPL, idt[12], handler12);
-	SET_IDT_ENTRY(KERNEL_CS, KERNEL_DPL, idt[13], handler13);
-	SET_IDT_ENTRY(KERNEL_CS, KERNEL_DPL, idt[14], handler14_linkage);
-	SET_IDT_ENTRY(KERNEL_CS, KERNEL_DPL, idt[16], handler16);
-	SET_IDT_ENTRY(KERNEL_CS, KERNEL_DPL, idt[17], handler17);
-	SET_IDT_ENTRY(KERNEL_CS, KERNEL_DPL, idt[18], handler18);
-	SET_IDT_ENTRY(KERNEL_CS, KERNEL_DPL, idt[19], handler19);
-	
-	for(i = 32; i<NUM_VEC;i++)
-		SET_IDT_ENTRY(KERNEL_CS, KERNEL_DPL, idt[i], unkwn_interrupt); //set all idt entries for external interrupts
-											
-	SET_IDT_ENTRY(KERNEL_CS, KERNEL_DPL, idt[(KEYBOARD_IRQ+USER_IRQ_OFFSET)], kbd_interrupt);//set up specific handlers for the keyboard/rtc/pit/mosue
-	SET_IDT_ENTRY(KERNEL_CS, KERNEL_DPL, idt[(RTC_IRQ+USER_IRQ_OFFSET)], rtc_interrupt);
-	SET_IDT_ENTRY(KERNEL_CS, KERNEL_DPL, idt[(PIT_IRQ+USER_IRQ_OFFSET)], pit_interrupt);
-	SET_IDT_ENTRY(KERNEL_CS, KERNEL_DPL, idt[(MOUSE_IRQ+USER_IRQ_OFFSET)], mouse_interrupt);
-	
-	SET_IDT_ENTRY(KERNEL_CS, USER_DPL, idt[SYS_CALL_IDT_ENTRY], syscallwrapper); // set up handler for system calls
 	
 	
+	//uncomment to test filesystem
+	
+	// Filesys test code STARTS HERE!
+/*	
+	uint8_t buf[40000];
+	uint8_t fname[NAME_LEN] = "shell";//"frame1.txt"; // Modify file name here!!!
+	uint8_t flist[NAME_LEN];
+	dentry_t temp;
+	uint32_t i, file_length, bytes_read;
+
+	read_dentry_by_name(fname, &temp);
+	uint32_t* inode_addr = (uint32_t*)((uint32_t)fs_boot + (temp.inode_num + 1) * BLOCK_SIZE);
+	file_length = *inode_addr;
+//	bytes_read = file_read(fname, buf, file_length); // Change file_length to desired length if needed
+	bytes_read = read_data(temp.inode_num, 0, buf, file_length);
+
+	printf("Testing file_read\n"); // testing file_read
+	printf("file name: ");
+	for (i = 0; i < NAME_LEN; i++) {
+		printf("%c", fname[i]);
+	}
+
+	printf("file length: %d\n", bytes_read);
+	
+	// Uncomment below to print file data
+	printf("file data: \n");
+	for (i = 0; i < 400; i++) {
+		printf("%c", buf[i]);
+	}
+*/
+
+/*	
+	printf("\nTesting dir_read\n"); // testing dir_read
+	dir_read(flist, NAME_LEN);
+	printf("d_entry 0: ");
+	for (i = 0; i < NAME_LEN; i++) {
+		printf("%c", flist[i]);
+	}
+	dir_read(flist, NAME_LEN);
+	printf("\nd_entry 1: ");
+	for (i = 0; i < NAME_LEN; i++) {
+		printf("%c", flist[i]);
+	}
+	dir_read(flist, NAME_LEN);
+	printf("\nd_entry 2: ");
+	for (i = 0; i < NAME_LEN; i++) {
+		printf("%c", flist[i]);
+	}
+	dir_read(flist, NAME_LEN);
+	printf("\nd_entry 3: ");
+	for (i = 0; i < NAME_LEN; i++) {
+		printf("%c", flist[i]);
+	}
+	dir_read(flist, NAME_LEN);
+	printf("\nd_entry 4: ");
+	for (i = 0; i < NAME_LEN; i++) {
+	printf("%c", flist[i]);
+	}
+*/	
+	// Filesys test code ENDS HERE!
+		
+	/* Init the IDT */
+	initialize_idt();
+
 	/* Init the PIC */
 	i8259_init();
-	for (i = 0; i < NUM_IRQS; i++)
-		disable_irq(i);
+	
+	/* Init paging*/
+	page_init();
 
+	/* Init the keyboard driver */
+	//initialize_keyboard();
+
+	/* Init the RTC driver */
+	initialize_rtc();
+	
+	sti();
+/*	
+	uint8_t namme[32] = "shell";
+	uint32_t* namme_addr = namme;
+	asm volatile("movl $5, %%eax\n\t"
+			"movl %0, %%ebx\n\t"
+			"call syscall_open\n\t"
+			:
+			: "g"(namme_addr)
+			);
+	
+	printf("\npass system open\n");
+*/
+	//run_shell();
+	
+	/* Checks for Paging */
+/*	int *p = (int*) 0x00c00001;
+	*p = 2;
+*/
+
+	//int *p = (int*) 0x00900000;
+	//*p = 2;
+	
+	//uncomment to test RTC
+	/*
+	int ret = 0;
+	int32_t int2 = 0;
+	rtc_open(NULL);
+	
+	int32_t int5 = 5;
+	ret = rtc_write(int2, &int5, int2);
+	printf("\n status: %d \n", ret);
+	
+	int hi;
+	for(hi = 0; hi<10; hi++) {
+		rtc_read(int2, NULL, int2);
+		printf("two");
+	}
+	
+	int5 = 4;
+	ret = rtc_write(int2, &int5, int2);
+	printf("\n status: %d \n", ret);
+
+	for(hi = 0; hi<10; hi++) {
+		rtc_read(int2, NULL, int2);
+		printf("four");
+	}
+
+	rtc_close(int2);
+*/
+
+	//uncomment to test terminal
+/*	term_open(NULL);
+
+	int len;
+	uint8_t buf[128];
+
+	int j=0;
+	while(j<50) {
+		term_write(-1,"\nEnter test input(unlimited):\n", 29);
+		len = term_read(-1,buf, 128);
+		term_write(-1,(char*)buf, len);
+		j++;
+	}
+*/
+
+		
+	//asm volatile("INT $40");
+
+	//check for divide by 0 exception
+	//uint8_t a = 8;
+	//a = 8/0;
+
+	//check for page fault
+/*	int *p = (int*) 0x00900000;
+	*p = 2;
+*/
+	
 	/* Initialize devices, memory, filesystem, enable device interrupts on the
 	 * PIC, any other initialization stuff... */
 
-	// filesystem initialization
-	module_t* filesystem_mod = (module_t*) mbi->mods_addr;
-	filesystem_init((boot_block_t*) filesystem_mod->mod_start); 
-
-	//terminal initalization
-	terminal_init();
-	
-	//mouse initalization
-	mouse_init();
-	
-	//rtc initalization
-	rtc_init();
-
-	
-	clear();
-	reset_printf_pos();
-	printf("\nGroup07 OS - Booting...\n\n\n\n\n");
-	//ascii art from http://www.oracle.com/javaone/lad-en/session-presentations/corejava/22641-enok-1439101.pdf
-	printf("          0000_____________0000________0000000000000000__000000000000000000\n");
-	printf("        00000000_________00000000______000000000000000__0000000000000000000\n");
-	printf("       000____000_______000____000_____000_______0000__00______0\n");
-	printf("      000______000_____000______000_____________0000___00______0\n");
-	printf("     0000______0000___0000______0000___________0000_____0_____0\n");
-	printf("     0000______0000___0000______0000__________0000___________0\n");
-	printf("     0000______0000___0000______0000_________000+__0000000000\n");
-	printf("     0000______0000___0000______0000________0000\n");
-	printf("      000______000_____000______000________0000\n");
-	printf("       000____000_______000____000_______00000\n");
-	printf("        00000000_________00000000_______0000000\n");
-	printf("          0000_____________0000________000000007\n");
-	
-	
-	uint8_t tempbuf[NUM_ROWS*NUM_COLS];
-	uint8_t startbuf[NUM_ROWS*NUM_COLS];
-	
-	change_colors(startbuf);
-	
-
-	//change to Bond Colors
-	for(i = 0; i < NUM_ROWS*NUM_COLS; i++)
-		tempbuf[i] = STARTUP_SCREEN_COLORS;
-	change_colors(tempbuf);
-	
-
-	startup_beep(); //GODDAMN THIS THING IS ANNOYING BUT IT'S AWESOME!!!!
-	change_colors(startbuf);
-	clear();
-	
-	soundcard_is_open = 0; //initalize the soundcard as unused
-
-	//Scheduler initialization
-	sched_init();
-	
-	//Signal initialization
-	signals_init();
-	
-
-	/* Enable interrupts */	
+	/* Enable interrupts */
 	/* Do not enable the following until after you have set up your
 	 * IDT correctly otherwise QEMU will triple fault and simple close
 	 * without showing you any output */
-	//printf("Enabling Interrupts\n");
-	//sti(); 
-	
-	// I'm intentionally setting up paging at the end.
-	// The reason is that the multiboot information structure may be placed
-	// *anywhere* in memory, so we could easily page fault while accessing it.
-	// By this point, we should be done with the structure, so we can get away
-	// with just mapping the kernel and the VGA.
-	map_kernel_vga_pages();
-	map_user_vga_page(VIDEO);
-	map_kernel_page();
-	enable_paging();
-
-	
-	// disable that hardware goddamned cursor
-	outb(0x0a, 0x3d4);
-	outb(0x20, 0x3d5); //Chris: Sweetness! I couldn't find the right commands to do it. Thanks whomever this was!
-	
+	/*printf("Enabling Interrupts\n");
+	sti();*/
 
 	/* Execute the first program (`shell') ... */
-	start_initial_shells(); 
-	
-	//should never hit this point in the code....
-	
-	
+	int8_t *fname = "shell\0";
+	asm volatile("movl $2, %%eax; movl %0, %%ebx; int $0x80"
+			:
+			: "g"(fname)
+			:"memory", "%eax" // clobber list
+			);
+			
 	/* Spin (nicely, so we don't chew up cycles) */
 	asm volatile(".1: hlt; jmp .1;");
 }

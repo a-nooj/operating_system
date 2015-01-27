@@ -1,0 +1,3 @@
+rtc.c: http://wiki.osdev.org/RTC#Changing_Interrupt_Rate
+i8259.c: http://wiki.osdev.org/8259_PIC
+

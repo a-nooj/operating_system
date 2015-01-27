@@ -20,16 +20,11 @@ SRC =  $(wildcard *.S) $(wildcard *.c)
 OBJS  = boot.o
 OBJS += $(filter-out boot.o,$(patsubst %.S,%.o,$(filter %.S,$(SRC))))
 OBJS += $(patsubst %.c,%.o,$(filter %.c,$(SRC))) 
-OBJS += tests.o
 
 
 bootimg: Makefile $(OBJS)
 	$(CC) $(LDFLAGS) $(OBJS) -Ttext=0x400000 -o bootimg
-	./debug.sh
-
-tests.o: test.h test.C generate_tests
-	./generate_tests
-	$(CC) $(CFLAGS) $(CPPFLAGS) -x c -c tests.C
+	sudo ./debug.sh
 
 dep: Makefile.dep
 
